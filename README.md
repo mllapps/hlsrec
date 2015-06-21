@@ -1,5 +1,5 @@
 # hlsrec
-HTTP Live Stream Recorder for Linux devices using ALSA.
+The tool hlsrec is a HTTP Live Stream Recorder for Linux devices using ALSA.
 
 ## Copyright
 
