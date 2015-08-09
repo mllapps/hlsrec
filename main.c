@@ -2,7 +2,7 @@
  * HTTP Live Streaming Audio Record Application
  *
  * @mainpage
- * hlsrc  
+ * usage: hlsrc hw:0,0 1000
  */
 #include <stdio.h>
 #include <stdlib.h>
