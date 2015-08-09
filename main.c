@@ -1,7 +1,8 @@
 /*
  * HTTP Live Streaming Audio Record Application
  *
- * 
+ * @mainpage
+ * hlsrc  
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -27,6 +28,7 @@ typedef struct {
     int byte_per_sample;
     int sample_rate;
     int num_channels;
+    short level;            /** level to detect if baby is crying */
 } hlsrec_global_flags;
 
 /*
@@ -56,6 +58,7 @@ int main (int argc, char *argv[])
     /* Setup the global flags */
     hlsrec_gf.sample_rate               = 44100;
     hlsrec_gf.num_channels              = 1;
+    hlsrec_gf.level                     = argv[2];
 
     fprintf(stderr, "start...\n");
     
@@ -268,7 +271,13 @@ void hlsrec_loop(snd_pcm_t *capture_handle, short buf[HLSREC_PCM_BUFFER_SIZE], h
 			 snd_strerror (err));
 		exit (1);
 	}
-
+	
+	/** @todo maybe you have to start a own thread for the detction */
+	for (i = 0; i < HLSREC_PCM_BUFFER_SIZE; i++) {
+	    if (buf[i] > gfp->level) {
+	        fprintf(stderr, "baby is crying (%d)\n",);
+	    }
+	}
 }
 
 /**
