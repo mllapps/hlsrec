@@ -26,7 +26,7 @@
  */
 typedef struct {
     int byte_per_sample;
-    int sample_rate;
+    unsigned int sample_rate;
     int num_channels;
     short level;            /** level to detect if baby is crying */
 } hlsrec_global_flags;
@@ -45,20 +45,24 @@ int hlsrec_write_m3u8(int i);
 int main (int argc, char *argv[])
 {
 	int i, res, nencoded, nwrite;
-	int err;
 	short int pcm_buf[HLSREC_PCM_BUFFER_SIZE];
 	snd_pcm_t *capture_handle;
 	FILE *fpOut;
     hlsrec_global_flags hlsrec_gf;
     lame_global_flags * lame_gfp;    
     const int mp3buffer_size = 1.25 * HLSREC_PCM_BUFFER_SIZE + 7200;
-    char mp3_buffer[mp3buffer_size];
+    unsigned char mp3_buffer[mp3buffer_size];
 
+    /** @todo write a better check for the arguments */
+    if(argc != 3) {
+        fprintf(stderr, "invalid number of arguments\n");
+        return -1;
+    }
 
     /* Setup the global flags */
     hlsrec_gf.sample_rate               = 44100;
     hlsrec_gf.num_channels              = 1;
-    hlsrec_gf.level                     = argv[2];
+    hlsrec_gf.level                     = atoi(argv[2]);
 
     fprintf(stderr, "start...\n");
     
@@ -121,7 +125,7 @@ int main (int argc, char *argv[])
                     lame_gfp,
                     pcm_buf, pcm_buf,
                     HLSREC_SAMPLES_TO_ENCODE,
-                    (char*)&mp3_buffer[0], 
+                    (unsigned char*)&mp3_buffer[0],
                     mp3buffer_size);
         if(nencoded < 0) {
             fprintf(stderr, "error encoding (%d)\n", nencoded);
@@ -156,8 +160,8 @@ int hlsrec_write_m3u8(int i)
     char * buf = malloc(400);
     char str[100];
     static const char * head = "#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:5\n";
-    static const char * head2 = "#EXT-X-PLAYLIST-TYPE:EVENT\n";
-    static const char* tail = "#EXT-X-ENDLIST\n";
+    /*static const char * head2 = "#EXT-X-PLAYLIST-TYPE:EVENT\n"; */
+    /*static const char* tail = "#EXT-X-ENDLIST\n"; */
 
     memset(buf, 0, 400);
     memset(str, 0, 100);
@@ -211,6 +215,8 @@ int hlsrec_write_m3u8(int i)
     fclose(fp);
     
     free(buf);
+
+    return 0; /* success */
 }
 
 /** 
@@ -244,7 +250,9 @@ int hlsrec_prepare_input_device(snd_pcm_t **capture_handle, const char * device,
 		fprintf (stderr, "cannot prepare audio interface for use (%s)\n",
 			 snd_strerror (err));
 		return (-3);
-	}    
+    }
+
+    return 0; /* success */
 }
 
 /**
@@ -333,4 +341,6 @@ int hlsrec_configure_hw(snd_pcm_t * capture_handle, hlsrec_global_flags * gfp)
 	}
     
 	snd_pcm_hw_params_free (hw_params);
+
+    return 0; /* success */
 }
