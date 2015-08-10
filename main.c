@@ -25,10 +25,10 @@
  * Global flags
  */
 typedef struct {
-    int byte_per_sample;
-    unsigned int sample_rate;
-    int num_channels;
-    short level;            /** level to detect if baby is crying */
+    int byte_per_sample;        /** Number of bytes for one sample */
+    unsigned int sample_rate;   /** Sample rate to record */
+    int num_channels;           /** Number of channels to record */
+    short level;                /** level to detect if baby is crying */
 } hlsrec_global_flags;
 
 /*
@@ -40,16 +40,16 @@ int hlsrec_prepare_input_device(snd_pcm_t **capture_handle, const char * device,
 int hlsrec_write_m3u8(int i);
 
 /**
- *
+ * Main entry point
  */
 int main (int argc, char *argv[])
 {
-	int i, res, nencoded, nwrite;
-	short int pcm_buf[HLSREC_PCM_BUFFER_SIZE];
-	snd_pcm_t *capture_handle;
-	FILE *fpOut;
+    int i, res, nencoded, nwrite;
+    short int pcm_buf[HLSREC_PCM_BUFFER_SIZE];
+    snd_pcm_t *capture_handle;
+    FILE *fpOut;
     hlsrec_global_flags hlsrec_gf;
-    lame_global_flags * lame_gfp;    
+    lame_global_flags * lame_gfp;
     const int mp3buffer_size = 1.25 * HLSREC_PCM_BUFFER_SIZE + 7200;
     unsigned char mp3_buffer[mp3buffer_size];
 
@@ -72,14 +72,14 @@ int main (int argc, char *argv[])
     
     /*
      * start here to configure the LAME library and prepare something
-     * 
+     *
      * Initialize the encoder.  sets default for all encoder parameters.
      * #include "lame.h"
      */
     lame_gfp = lame_init();
     /*
      * The default (if you set nothing) is a  J-Stereo, 44.1khz
-     * 128kbps CBR mp3 file at quality 5.  Override various default settings 
+     * 128kbps CBR mp3 file at quality 5.  Override various default settings
      * as necessary, for example:
      *
      * See lame.h for the complete list of options.  Note that there are
@@ -92,9 +92,9 @@ int main (int argc, char *argv[])
     lame_set_in_samplerate(lame_gfp,     hlsrec_gf.sample_rate);
     lame_set_brate(lame_gfp,             128);
     /* mode = 0,1,2,3 = stereo, jstereo, dual channel (not supported), mono */
-    lame_set_mode(lame_gfp,              3); 
-    lame_set_quality(lame_gfp,           2);   /* 2=high  5 = medium  7=low */ 
-     
+    lame_set_mode(lame_gfp,              3);
+    lame_set_quality(lame_gfp,           2);   /* 2=high  5 = medium  7=low */
+
     /*
      * Set more internal configuration based on data provided above,
      * as well as checking for problems.  Check that ret_code >= 0.
@@ -103,7 +103,7 @@ int main (int argc, char *argv[])
     if(res < 0) {
         fprintf(stderr, "invalid lame params (%d)\n", res);
     }
-        
+
     fprintf(stderr, "prepared\n");
     
     
@@ -114,24 +114,24 @@ int main (int argc, char *argv[])
         sprintf(filename, "/var/www/test%d.mp3", i);
         /* open the output file */
         fpOut = fopen(filename, "wb"); /* open the output file*/
-            
-    	/* record data from input device and write to pcm_buf */
-    	hlsrec_loop(capture_handle, pcm_buf, &hlsrec_gf);
-    	
+
+        /* record data from input device and write to pcm_buf */
+        hlsrec_loop(capture_handle, pcm_buf, &hlsrec_gf);
+
         fprintf(stderr, "recorded\n");
-    	
-    	/* encode data from pcm_buf and write to mp3_buffer */
+
+        /* encode data from pcm_buf and write to mp3_buffer */
         nencoded = lame_encode_buffer(
                     lame_gfp,
                     pcm_buf, pcm_buf,
                     HLSREC_SAMPLES_TO_ENCODE,
                     (unsigned char*)&mp3_buffer[0],
-                    mp3buffer_size);
+                mp3buffer_size);
         if(nencoded < 0) {
             fprintf(stderr, "error encoding (%d)\n", nencoded);
         }
-    
-        /* write the encoded data to the output file */                
+
+        /* write the encoded data to the output file */
         nwrite = fwrite((void *)&mp3_buffer[0], sizeof(char), nencoded, fpOut);
         if(nencoded != nwrite){
             fprintf(stderr, "error write (%d) should be %d\n", nwrite, nencoded);
@@ -146,13 +146,19 @@ int main (int argc, char *argv[])
      * close the output file and close the alsa input device.
      */
     lame_close(lame_gfp);
-	snd_pcm_close (capture_handle);
+    snd_pcm_close (capture_handle);
     
     fprintf(stderr, "successfuly closed\n");
     
-	exit (0);
+    exit (0);
 }
 
+/**
+ * @brief Update the m3u8 file with the given index
+ * @param i Index of the next audio file
+ *
+ * @return 0 on success. Otherwise a negative error code
+ */
 int hlsrec_write_m3u8(int i)
 {
     int nwrite, towrite, b;
@@ -179,10 +185,10 @@ int hlsrec_write_m3u8(int i)
     }else {
         b = 0;
         sprintf((char*)&str[0], "#EXT-X-MEDIA-SEQUENCE:%d\n", b);
-        strcat(buf, str);        
+        strcat(buf, str);
     }
     
-//    strcat(buf, head2);
+    //    strcat(buf, head2);
 
     if (i > 1) {
         b = i - 2;
@@ -199,7 +205,7 @@ int hlsrec_write_m3u8(int i)
     sprintf((char*)&str[0], "#EXTINF:4.9,\nhttp://192.168.1.146/test%d.mp3\n", i);
     strcat(buf, str);
 
-//    strcat(buf, tail);
+    //    strcat(buf, tail);
     
     
     if( (fp = fopen("/var/www/index.m3u8", "wb")) == NULL){
@@ -230,33 +236,33 @@ int hlsrec_prepare_input_device(snd_pcm_t **capture_handle, const char * device,
 {
     int err;
 
-	if ((err = snd_pcm_open (capture_handle, device, SND_PCM_STREAM_CAPTURE, 0)) < 0) {
-		fprintf (stderr, "cannot open audio device %s (%s)\n", 
-			 device,
-			 snd_strerror (err));
-		return (-1);
-	}
+    if ((err = snd_pcm_open (capture_handle, device, SND_PCM_STREAM_CAPTURE, 0)) < 0) {
+        fprintf (stderr, "cannot open audio device %s (%s)\n",
+                 device,
+                 snd_strerror (err));
+        return (-1);
+    }
     
     
     fprintf(stderr, "opened\n");
-	
-	if( (err = hlsrec_configure_hw(*capture_handle, gfp) ) < 0) {
-    	return (-2);
-	}
+
+    if( (err = hlsrec_configure_hw(*capture_handle, gfp) ) < 0) {
+        return (-2);
+    }
 
     fprintf(stderr, "configured\n");
 
-	if ((err = snd_pcm_prepare (*capture_handle)) < 0) {
-		fprintf (stderr, "cannot prepare audio interface for use (%s)\n",
-			 snd_strerror (err));
-		return (-3);
+    if ((err = snd_pcm_prepare (*capture_handle)) < 0) {
+        fprintf (stderr, "cannot prepare audio interface for use (%s)\n",
+                 snd_strerror (err));
+        return (-3);
     }
 
     return 0; /* success */
 }
 
 /**
- * \brief Loop the capture process 
+ * \brief Loop the capture process
  *
  * \param capture_handle ALSA device handle to capture the data
  * \param buf Buffer to write the captured data
@@ -264,83 +270,83 @@ int hlsrec_prepare_input_device(snd_pcm_t **capture_handle, const char * device,
 void hlsrec_loop(snd_pcm_t *capture_handle, short buf[HLSREC_PCM_BUFFER_SIZE], hlsrec_global_flags * gfp)
 {
     int i, err;
-        
+
     /* load the reading process and write the data to the output file */
-/*	for (i = 0; i < HLSREC_SAMPLE_ITERATIONS; ++i) {
-		if ((err = snd_pcm_readi (capture_handle, buf, HLSREC_PCM_BUFFER_SIZE)) != HLSREC_PCM_BUFFER_SIZE) {
-			fprintf (stderr, "read from audio interface failed (%s)\n",
-				 snd_strerror (err));
-			exit (1);
-		}
-	}
+    /*	for (i = 0; i < HLSREC_SAMPLE_ITERATIONS; ++i) {
+        if ((err = snd_pcm_readi (capture_handle, buf, HLSREC_PCM_BUFFER_SIZE)) != HLSREC_PCM_BUFFER_SIZE) {
+            fprintf (stderr, "read from audio interface failed (%s)\n",
+                 snd_strerror (err));
+            exit (1);
+        }
+    }
 */	
-	if ((err = snd_pcm_readi (capture_handle, buf, HLSREC_PCM_BUFFER_SIZE)) != HLSREC_PCM_BUFFER_SIZE) {
-		fprintf (stderr, "read from audio interface failed (%s)\n",
-			 snd_strerror (err));
-		exit (1);
-	}
-	
-	/** @todo maybe you have to start a own thread for the detction */
-	for (i = 0; i < HLSREC_PCM_BUFFER_SIZE; i++) {
-	    if (buf[i] > gfp->level) {
+    if ((err = snd_pcm_readi (capture_handle, buf, HLSREC_PCM_BUFFER_SIZE)) != HLSREC_PCM_BUFFER_SIZE) {
+        fprintf (stderr, "read from audio interface failed (%s)\n",
+                 snd_strerror (err));
+        exit (1);
+    }
+
+    /** @todo maybe you have to start a own thread for the detction */
+    for (i = 0; i < HLSREC_PCM_BUFFER_SIZE; i++) {
+        if (buf[i] > gfp->level) {
             fprintf(stderr, "baby is crying (%d)\n", buf[i]);
-	    }
-	}
+        }
+    }
 }
 
 /**
  * \brief Configure the alsa audio hardware
  *
- * \return 
+ * \return
  */
 int hlsrec_configure_hw(snd_pcm_t * capture_handle, hlsrec_global_flags * gfp)
 {
-	int err;
-	snd_pcm_hw_params_t *hw_params;
+    int err;
+    snd_pcm_hw_params_t *hw_params;
 
-	if ((err = snd_pcm_hw_params_malloc (&hw_params)) < 0) {
-		fprintf (stderr, "cannot allocate hardware parameter structure (%s)\n",
-			 snd_strerror (err));
-		return (-1);
-	}
-			 
-	if ((err = snd_pcm_hw_params_any (capture_handle, hw_params)) < 0) {
-		fprintf (stderr, "cannot initialize hardware parameter structure (%s)\n",
-			 snd_strerror (err));
-		return (-2);
-	}
+    if ((err = snd_pcm_hw_params_malloc (&hw_params)) < 0) {
+        fprintf (stderr, "cannot allocate hardware parameter structure (%s)\n",
+                 snd_strerror (err));
+        return (-1);
+    }
 
-	if ((err = snd_pcm_hw_params_set_access (capture_handle, hw_params, SND_PCM_ACCESS_RW_INTERLEAVED)) < 0) {
-		fprintf (stderr, "cannot set access type (%s)\n",
-			 snd_strerror (err));
-		return (-3);
-	}
+    if ((err = snd_pcm_hw_params_any (capture_handle, hw_params)) < 0) {
+        fprintf (stderr, "cannot initialize hardware parameter structure (%s)\n",
+                 snd_strerror (err));
+        return (-2);
+    }
 
-	if ((err = snd_pcm_hw_params_set_format (capture_handle, hw_params, SND_PCM_FORMAT_S16_LE)) < 0) {
-		fprintf (stderr, "cannot set sample format (%s)\n",
-			 snd_strerror (err));
-		return (-4);
-	}
+    if ((err = snd_pcm_hw_params_set_access (capture_handle, hw_params, SND_PCM_ACCESS_RW_INTERLEAVED)) < 0) {
+        fprintf (stderr, "cannot set access type (%s)\n",
+                 snd_strerror (err));
+        return (-3);
+    }
+
+    if ((err = snd_pcm_hw_params_set_format (capture_handle, hw_params, SND_PCM_FORMAT_S16_LE)) < 0) {
+        fprintf (stderr, "cannot set sample format (%s)\n",
+                 snd_strerror (err));
+        return (-4);
+    }
     
-	if ((err = snd_pcm_hw_params_set_rate_near (capture_handle, hw_params, &gfp->sample_rate, 0)) < 0) {
-		fprintf (stderr, "cannot set sample rate (%s)\n",
-			 snd_strerror (err));
-		return (-5);
-	}
+    if ((err = snd_pcm_hw_params_set_rate_near (capture_handle, hw_params, &gfp->sample_rate, 0)) < 0) {
+        fprintf (stderr, "cannot set sample rate (%s)\n",
+                 snd_strerror (err));
+        return (-5);
+    }
 
-	if ((err = snd_pcm_hw_params_set_channels (capture_handle, hw_params, gfp->num_channels)) < 0) {
-		fprintf (stderr, "cannot set channel count (%s)\n",
-			 snd_strerror (err));
-		return (-6);
-	}
+    if ((err = snd_pcm_hw_params_set_channels (capture_handle, hw_params, gfp->num_channels)) < 0) {
+        fprintf (stderr, "cannot set channel count (%s)\n",
+                 snd_strerror (err));
+        return (-6);
+    }
 
-	if ((err = snd_pcm_hw_params (capture_handle, hw_params)) < 0) {
-		fprintf (stderr, "cannot set parameters (%s)\n",
-			 snd_strerror (err));
-		return (-7);
-	}
+    if ((err = snd_pcm_hw_params (capture_handle, hw_params)) < 0) {
+        fprintf (stderr, "cannot set parameters (%s)\n",
+                 snd_strerror (err));
+        return (-7);
+    }
     
-	snd_pcm_hw_params_free (hw_params);
+    snd_pcm_hw_params_free (hw_params);
 
     return 0; /* success */
 }

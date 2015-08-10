@@ -15,3 +15,6 @@ target.files = hlsrec
 target.path= /usr/bin
 
 INSTALLS = target
+
+DISTFILES += \
+    doc/README.md
