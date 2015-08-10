@@ -10,7 +10,7 @@
 #include <string.h>
 
 #include <alsa/asoundlib.h>
-#include <lame.h>
+#include <lame/lame.h>
 
 /**
  * Number of samples read by one iteration
@@ -275,7 +275,7 @@ void hlsrec_loop(snd_pcm_t *capture_handle, short buf[HLSREC_PCM_BUFFER_SIZE], h
 	/** @todo maybe you have to start a own thread for the detction */
 	for (i = 0; i < HLSREC_PCM_BUFFER_SIZE; i++) {
 	    if (buf[i] > gfp->level) {
-	        fprintf(stderr, "baby is crying (%d)\n",);
+            fprintf(stderr, "baby is crying (%d)\n", buf[i]);
 	    }
 	}
 }
