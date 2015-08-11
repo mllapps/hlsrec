@@ -2,4 +2,4 @@
 
 ## Usage
 
-    hlsrec hw:1,0 1000
+    hlsrec hw:0,0 1000

@@ -108,7 +108,7 @@ int main (int argc, char *argv[])
     
     
     char filename[100];
-    for (i = 0; i < 20; i++) {
+    for (i = 0; i < 200; i++) {
         
         memset(filename, 0, 100);
         sprintf(filename, "/var/www/test%d.mp3", i);
@@ -192,17 +192,17 @@ int hlsrec_write_m3u8(int i)
 
     if (i > 1) {
         b = i - 2;
-        sprintf((char*)&str[0], "#EXTINF:4.9,\nhttp://192.168.1.146/test%d.mp3\n", b);
+        sprintf((char*)&str[0], "#EXTINF:4.9,\nhttp://192.168.1.123/test%d.mp3\n", b);
         strcat(buf, str);
     }
     
     if (i > 0) {
         b = i - 1;
-        sprintf((char*)&str[0], "#EXTINF:4.9,\nhttp://192.168.1.146/test%d.mp3\n", b);
+        sprintf((char*)&str[0], "#EXTINF:4.9,\nhttp://192.168.1.123/test%d.mp3\n", b);
         strcat(buf, str);
     }
 
-    sprintf((char*)&str[0], "#EXTINF:4.9,\nhttp://192.168.1.146/test%d.mp3\n", i);
+    sprintf((char*)&str[0], "#EXTINF:4.9,\nhttp://192.168.1.123/test%d.mp3\n", i);
     strcat(buf, str);
 
     //    strcat(buf, tail);
@@ -236,6 +236,7 @@ int hlsrec_prepare_input_device(snd_pcm_t **capture_handle, const char * device,
 {
     int err;
 
+    fprintf(stderr, "try to open device %s\n", device);
     if ((err = snd_pcm_open (capture_handle, device, SND_PCM_STREAM_CAPTURE, 0)) < 0) {
         fprintf (stderr, "cannot open audio device %s (%s)\n",
                  device,
@@ -269,7 +270,7 @@ int hlsrec_prepare_input_device(snd_pcm_t **capture_handle, const char * device,
  */
 void hlsrec_loop(snd_pcm_t *capture_handle, short buf[HLSREC_PCM_BUFFER_SIZE], hlsrec_global_flags * gfp)
 {
-    int i, err;
+    int i, err, levelcnt;
 
     /* load the reading process and write the data to the output file */
     /*	for (i = 0; i < HLSREC_SAMPLE_ITERATIONS; ++i) {
@@ -286,11 +287,18 @@ void hlsrec_loop(snd_pcm_t *capture_handle, short buf[HLSREC_PCM_BUFFER_SIZE], h
         exit (1);
     }
 
+    /* It is not needed to check all samples so we just check 5th's sample and increment a counter */
     /** @todo maybe you have to start a own thread for the detction */
-    for (i = 0; i < HLSREC_PCM_BUFFER_SIZE; i++) {
+    levelcnt = 0;
+    for (i = 0; i < HLSREC_PCM_BUFFER_SIZE; i+=5) {
         if (buf[i] > gfp->level) {
-            fprintf(stderr, "baby is crying (%d)\n", buf[i]);
+            levelcnt++;
+            /* fprintf(stderr, "baby is crying (%d)\n", buf[i]); */
         }
+    }
+
+    if(levelcnt > 500) {
+        fprintf(stderr, "baby is crying (%d)\n", levelcnt);
     }
 }
 
