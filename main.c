@@ -9,6 +9,10 @@
 #include <stdint.h>
 #include <string.h>
 
+#include <ctype.h>
+#include <unistd.h>
+
+
 #include <alsa/asoundlib.h>
 #include <lame/lame.h>
 
@@ -29,6 +33,7 @@ typedef struct {
     unsigned int sample_rate;   /** Sample rate to record */
     int num_channels;           /** Number of channels to record */
     short level;                /** level to detect if baby is crying */
+    short intensity;            /** number of detected samples to switch the state crying */
 } hlsrec_global_flags;
 
 /*
@@ -44,7 +49,7 @@ int hlsrec_write_m3u8(int i);
  */
 int main (int argc, char *argv[])
 {
-    int i, res, nencoded, nwrite;
+    int i, res, nencoded, nwrite, hflag, c;
     short int pcm_buf[HLSREC_PCM_BUFFER_SIZE];
     snd_pcm_t *capture_handle;
     FILE *fpOut;
@@ -53,16 +58,64 @@ int main (int argc, char *argv[])
     const int mp3buffer_size = 1.25 * HLSREC_PCM_BUFFER_SIZE + 7200;
     unsigned char mp3_buffer[mp3buffer_size];
 
+    /* Setup the global flags */
+    hlsrec_gf.sample_rate               = 44100;
+    hlsrec_gf.num_channels              = 1;
+    hlsrec_gf.level                     = 10000;
+    hlsrec_gf.intensity                 = 500;
+
     /** @todo write a better check for the arguments */
     if(argc != 3) {
         fprintf(stderr, "invalid number of arguments\n");
         return -1;
     }
-
-    /* Setup the global flags */
-    hlsrec_gf.sample_rate               = 44100;
-    hlsrec_gf.num_channels              = 1;
-    hlsrec_gf.level                     = atoi(argv[2]);
+    
+    opterr = 0;
+    while ((c = getopt (argc, argv, "hl:i:")) != -1)
+    {
+    switch (c)
+      {
+      case 'h':
+        hflag = 1;
+        break;
+      case 'l':
+        hlsrec_gf.level = atoi(optarg);
+        
+        if (hlsrec_gf.level < 0) {
+            fprintf(stderr, "invalid parameter value for level\n");
+            exit(0);
+        }
+        break;
+      case 'i':
+        hlsrec_gf.intensity = atoi(optarg);
+        
+        if(hlsrec_gf.intensity < 0){
+            fprintf(stderr, "invalid parameter for intensity\n");
+            exit(0);
+        }
+        break;
+      case '?':
+        if (optopt == 'l' || optopt == 'i') {
+          fprintf (stderr, "Option -%c requires an argument.\n", optopt);
+        }
+        else if (isprint (optopt)) {
+          fprintf (stderr, "Unknown option `-%c'.\n", optopt);
+        }
+        else {
+          fprintf (stderr,
+                   "Unknown option character `\\x%x'.\n",
+                   optopt);
+        }
+        return 1;
+      default:
+        abort ();
+      }
+    }
+    
+    if (hflag ) {
+        fprintf(stderr, "print usage and menu");
+        exit(0);
+    }
 
     fprintf(stderr, "start...\n");
     
