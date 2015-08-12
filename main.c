@@ -49,13 +49,15 @@ void hlsrec_loop(snd_pcm_t *capture_handle, short buf[HLSREC_PCM_BUFFER_SIZE], h
 int hlsrec_configure_hw(snd_pcm_t * capture_handle, hlsrec_global_flags * gfp);
 int hlsrec_prepare_input_device(snd_pcm_t **capture_handle, const char * device, hlsrec_global_flags * gfp);
 int hlsrec_write_m3u8(int i);
+void hlsrec_usage();
+int hlsrec_cli(hlsrec_global_flags  &gfp);
 
 /**
  * Main entry point
  */
 int main (int argc, char *argv[])
 {
-    int i, res, nencoded, nwrite, hflag = 0, c;
+    int i, res, nencoded, nwrite, hflag = 0, vflag = 0, c;
     short int pcm_buf[HLSREC_PCM_BUFFER_SIZE];
     snd_pcm_t *capture_handle;
     FILE *fpOut;
@@ -74,12 +76,15 @@ int main (int argc, char *argv[])
     
     /* Parse the cli arguments and initialize the global flags if available */
     opterr = 0;
-    while ((c = getopt (argc, argv, "hl:i:")) != -1)
+    while ((c = getopt (argc, argv, "hvl:i:")) != -1)
     {
     switch (c)
       {
       case 'h':
         hflag = 1;
+        break;
+      case 'v':
+        vflag = 1;
         break;
       case 'l':
         hlsrec_gf.level = atoi(optarg);
@@ -115,8 +120,15 @@ int main (int argc, char *argv[])
       }
     }
     
+    /* print the usage information if the flag is set */
     if (hflag ) {
         hlsrec_usage();
+        exit(0);
+    }
+    
+    /* print the version information if flag is set */
+    if (vflag) {
+        fprintf(stderr, "%d.%d.%d\n", PROJECT_VERSION_MAJOR, PROJECT_VERSION_MINOR, PROJECT_VERSION_PATCH);
         exit(0);
     }
 
@@ -218,6 +230,17 @@ void hlsrec_usage()
     fprintf(stderr, "-h print this help/usage information\n");
     fprintf(stderr, "-l level 1...65536\n");
     fprintf(stderr, "-i intensity 1...65536\n");
+}
+
+/**
+ * @brief Parse the CLI arguments and set the global variables and/or flags if available
+ *
+ * @param gf Reference to the structure with all flags and variables
+ * @return 0 on success. Otherwise a negative error code.
+ */
+int hlsrec_cli(hlsrec_global_flags  &gf)
+{
+    return 0;
 }
 
 /**
