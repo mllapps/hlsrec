@@ -16,6 +16,11 @@
 #include <alsa/asoundlib.h>
 #include <lame/lame.h>
 
+
+#define PROJECT_VERSION_MAJOR 1
+#define PROJECT_VERSION_MINOR 0
+#define PROJECT_VERSION_PATCH 0
+
 /**
  * Number of samples read by one iteration
  */
@@ -29,6 +34,7 @@
  * Global flags
  */
 typedef struct {
+    char device[100];
     int byte_per_sample;        /** Number of bytes for one sample */
     unsigned int sample_rate;   /** Sample rate to record */
     int num_channels;           /** Number of channels to record */
@@ -49,7 +55,7 @@ int hlsrec_write_m3u8(int i);
  */
 int main (int argc, char *argv[])
 {
-    int i, res, nencoded, nwrite, hflag, c;
+    int i, res, nencoded, nwrite, hflag = 0, c;
     short int pcm_buf[HLSREC_PCM_BUFFER_SIZE];
     snd_pcm_t *capture_handle;
     FILE *fpOut;
@@ -58,18 +64,15 @@ int main (int argc, char *argv[])
     const int mp3buffer_size = 1.25 * HLSREC_PCM_BUFFER_SIZE + 7200;
     unsigned char mp3_buffer[mp3buffer_size];
 
-    /* Setup the global flags */
-    hlsrec_gf.sample_rate               = 44100;
-    hlsrec_gf.num_channels              = 1;
+    /* Set the global flags to default value */
+    memset(&hlsrec_gf.device[0], 0, 100);
+    strcpy(&hlsrec_gf.device[0], "hw:0,0");
+    hlsrec_gf.sample_rate               = 44100;    /* currently a constant */
+    hlsrec_gf.num_channels              = 1;        /* currently a constant */
     hlsrec_gf.level                     = 10000;
     hlsrec_gf.intensity                 = 500;
-
-    /** @todo write a better check for the arguments */
-    if(argc != 3) {
-        fprintf(stderr, "invalid number of arguments\n");
-        return -1;
-    }
     
+    /* Parse the cli arguments and initialize the global flags if available */
     opterr = 0;
     while ((c = getopt (argc, argv, "hl:i:")) != -1)
     {
@@ -113,13 +116,13 @@ int main (int argc, char *argv[])
     }
     
     if (hflag ) {
-        fprintf(stderr, "print usage and menu");
+        hlsrec_usage();
         exit(0);
     }
 
     fprintf(stderr, "start...\n");
     
-    if( (res = hlsrec_prepare_input_device(&capture_handle, argv[1], &hlsrec_gf) ) < 0) {
+    if( (res = hlsrec_prepare_input_device(&capture_handle, &hlsrec_gf.device[0], &hlsrec_gf) ) < 0) {
         exit(res);
     }
     
@@ -204,6 +207,17 @@ int main (int argc, char *argv[])
     fprintf(stderr, "successfuly closed\n");
     
     exit (0);
+}
+
+/**
+ * @brief Print the help/usage information
+ */
+void hlsrec_usage()
+{
+    fprintf(stderr, "hlsrec %d.%d.%d\n\n", PROJECT_VERSION_MAJOR, PROJECT_VERSION_MINOR, PROJECT_VERSION_PATCH);
+    fprintf(stderr, "-h print this help/usage information\n");
+    fprintf(stderr, "-l level 1...65536\n");
+    fprintf(stderr, "-i intensity 1...65536\n");
 }
 
 /**
@@ -350,7 +364,7 @@ void hlsrec_loop(snd_pcm_t *capture_handle, short buf[HLSREC_PCM_BUFFER_SIZE], h
         }
     }
 
-    if(levelcnt > 500) {
+    if(levelcnt > gfp->intensity) {
         fprintf(stderr, "baby is crying (%d)\n", levelcnt);
     }
 }
