@@ -17,4 +17,5 @@ target.path= /usr/bin
 INSTALLS = target
 
 DISTFILES += \
-    doc/README.md
+    doc/README.md \
+    CHANGELOG.md

@@ -50,7 +50,7 @@ int hlsrec_configure_hw(snd_pcm_t * capture_handle, hlsrec_global_flags * gfp);
 int hlsrec_prepare_input_device(snd_pcm_t **capture_handle, const char * device, hlsrec_global_flags * gfp);
 int hlsrec_write_m3u8(int i);
 void hlsrec_usage();
-int hlsrec_cli(hlsrec_global_flags  &gfp);
+int hlsrec_cli(hlsrec_global_flags  *gfp);
 
 /**
  * Main entry point
@@ -71,53 +71,53 @@ int main (int argc, char *argv[])
     strcpy(&hlsrec_gf.device[0], "hw:0,0");
     hlsrec_gf.sample_rate               = 44100;    /* currently a constant */
     hlsrec_gf.num_channels              = 1;        /* currently a constant */
-    hlsrec_gf.level                     = 10000;
-    hlsrec_gf.intensity                 = 500;
+    hlsrec_gf.level                     = 10000;    /* volume level to use for the detection */
+    hlsrec_gf.intensity                 = 500;      /* number of detection in one interval if the event occours */
     
     /* Parse the cli arguments and initialize the global flags if available */
     opterr = 0;
     while ((c = getopt (argc, argv, "hvl:i:")) != -1)
     {
-    switch (c)
-      {
-      case 'h':
-        hflag = 1;
-        break;
-      case 'v':
-        vflag = 1;
-        break;
-      case 'l':
-        hlsrec_gf.level = atoi(optarg);
-        
-        if (hlsrec_gf.level < 0) {
-            fprintf(stderr, "invalid parameter value for level\n");
-            exit(0);
+        switch (c)
+        {
+        case 'h':
+            hflag = 1;
+            break;
+        case 'v':
+            vflag = 1;
+            break;
+        case 'l':
+            hlsrec_gf.level = atoi(optarg);
+
+            if (hlsrec_gf.level < 0) {
+                fprintf(stderr, "invalid parameter value for level\n");
+                exit(0);
+            }
+            break;
+        case 'i':
+            hlsrec_gf.intensity = atoi(optarg);
+
+            if(hlsrec_gf.intensity < 0){
+                fprintf(stderr, "invalid parameter for intensity\n");
+                exit(0);
+            }
+            break;
+        case '?':
+            if (optopt == 'l' || optopt == 'i') {
+                fprintf (stderr, "Option -%c requires an argument.\n", optopt);
+            }
+            else if (isprint (optopt)) {
+                fprintf (stderr, "Unknown option `-%c'.\n", optopt);
+            }
+            else {
+                fprintf (stderr,
+                         "Unknown option character `\\x%x'.\n",
+                         optopt);
+            }
+            return 1;
+        default:
+            abort ();
         }
-        break;
-      case 'i':
-        hlsrec_gf.intensity = atoi(optarg);
-        
-        if(hlsrec_gf.intensity < 0){
-            fprintf(stderr, "invalid parameter for intensity\n");
-            exit(0);
-        }
-        break;
-      case '?':
-        if (optopt == 'l' || optopt == 'i') {
-          fprintf (stderr, "Option -%c requires an argument.\n", optopt);
-        }
-        else if (isprint (optopt)) {
-          fprintf (stderr, "Unknown option `-%c'.\n", optopt);
-        }
-        else {
-          fprintf (stderr,
-                   "Unknown option character `\\x%x'.\n",
-                   optopt);
-        }
-        return 1;
-      default:
-        abort ();
-      }
     }
     
     /* print the usage information if the flag is set */
@@ -233,12 +233,14 @@ void hlsrec_usage()
 }
 
 /**
+ * @todo Currently not implemented
+ *
  * @brief Parse the CLI arguments and set the global variables and/or flags if available
  *
  * @param gf Reference to the structure with all flags and variables
  * @return 0 on success. Otherwise a negative error code.
  */
-int hlsrec_cli(hlsrec_global_flags  &gf)
+int hlsrec_cli(hlsrec_global_flags  *gf)
 {
     return 0;
 }
@@ -362,15 +364,6 @@ void hlsrec_loop(snd_pcm_t *capture_handle, short buf[HLSREC_PCM_BUFFER_SIZE], h
 {
     int i, err, levelcnt;
 
-    /* load the reading process and write the data to the output file */
-    /*	for (i = 0; i < HLSREC_SAMPLE_ITERATIONS; ++i) {
-        if ((err = snd_pcm_readi (capture_handle, buf, HLSREC_PCM_BUFFER_SIZE)) != HLSREC_PCM_BUFFER_SIZE) {
-            fprintf (stderr, "read from audio interface failed (%s)\n",
-                 snd_strerror (err));
-            exit (1);
-        }
-    }
-*/	
     if ((err = snd_pcm_readi (capture_handle, buf, HLSREC_PCM_BUFFER_SIZE)) != HLSREC_PCM_BUFFER_SIZE) {
         fprintf (stderr, "read from audio interface failed (%s)\n",
                  snd_strerror (err));
@@ -383,7 +376,6 @@ void hlsrec_loop(snd_pcm_t *capture_handle, short buf[HLSREC_PCM_BUFFER_SIZE], h
     for (i = 0; i < HLSREC_PCM_BUFFER_SIZE; i+=5) {
         if (buf[i] > gfp->level) {
             levelcnt++;
-            /* fprintf(stderr, "baby is crying (%d)\n", buf[i]); */
         }
     }
 
