@@ -12,6 +12,9 @@
 #include <ctype.h>
 #include <unistd.h>
 
+#include <sys/types.h>
+#include <sys/stat.h>
+
 
 #include <alsa/asoundlib.h>
 #include <lame/lame.h>
@@ -179,7 +182,13 @@ int main (int argc, char *argv[])
     for (i = 0; i < 200; i++) {
         
         memset(filename, 0, 100);
-        sprintf(filename, "/var/www/test%d.mp3", i);
+        sprintf(filename, "/mnt/ramdisk/www/test%d.mp3", i);
+//        sprintf(filename, "/var/www/test%d.mp3", i);
+
+        /* currently we ignore the previous value of the mask */
+//        umask(S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
+        umask(022);
+
         /* open the output file */
         fpOut = fopen(filename, "wb"); /* open the output file*/
 
@@ -228,6 +237,7 @@ void hlsrec_usage()
 {
     fprintf(stderr, "hlsrec %d.%d.%d\n\n", PROJECT_VERSION_MAJOR, PROJECT_VERSION_MINOR, PROJECT_VERSION_PATCH);
     fprintf(stderr, "-h print this help/usage information\n");
+    fprintf(stderr, "-v display the version of the application\n");
     fprintf(stderr, "-l level 1...65536\n");
     fprintf(stderr, "-i intensity 1...65536\n");
 }
@@ -300,7 +310,8 @@ int hlsrec_write_m3u8(int i)
     //    strcat(buf, tail);
     
     
-    if( (fp = fopen("/var/www/index.m3u8", "wb")) == NULL){
+    if( (fp = fopen("/mnt/ramdisk/www/index.m3u8", "wb")) == NULL){
+//    if( (fp = fopen("/var/www/index.m3u8", "wb")) == NULL){
         fprintf(stderr, "error open index.m3u8\n");
         return -1;
     }
