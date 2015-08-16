@@ -25,15 +25,6 @@
 #define PROJECT_VERSION_PATCH 0
 
 /**
- * Number of samples read by one iteration
- */
-#define HLSREC_SAMPLES_PER_ITERATION        (128)
-#define HLSREC_SAMPLE_ITERATIONS            (1722)
-
-#define HLSREC_PCM_BUFFER_SIZE              (HLSREC_SAMPLES_PER_ITERATION * HLSREC_SAMPLE_ITERATIONS)
-
-#define HLSREC_SAMPLES_TO_ENCODE            (HLSREC_PCM_BUFFER_SIZE)
-/**
  * Global flags
  */
 typedef struct {
@@ -53,7 +44,7 @@ typedef struct {
 /*
  * foreward declaration
  */
-void hlsrec_loop(snd_pcm_t *capture_handle, short buf[HLSREC_PCM_BUFFER_SIZE], hlsrec_global_flags* gfp);
+void hlsrec_loop(snd_pcm_t *capture_handle, short buf[], hlsrec_global_flags* gfp);
 int hlsrec_configure_hw(snd_pcm_t * capture_handle, hlsrec_global_flags * gfp);
 int hlsrec_prepare_input_device(snd_pcm_t **capture_handle, const char * device, hlsrec_global_flags * gfp);
 int hlsrec_write_m3u8(int i, hlsrec_global_flags *gfp, char * tmp);
