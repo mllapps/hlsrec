@@ -39,6 +39,7 @@ typedef struct {
     short int * pcm_buf;
     long num_mp3_buffer_size;
     unsigned char * mp3buffer;
+    char * outputpath;
 } hlsrec_global_flags;
 
 /*
@@ -47,7 +48,7 @@ typedef struct {
 void hlsrec_loop(snd_pcm_t *capture_handle, short buf[], hlsrec_global_flags* gfp);
 int hlsrec_configure_hw(snd_pcm_t * capture_handle, hlsrec_global_flags * gfp);
 int hlsrec_prepare_input_device(snd_pcm_t **capture_handle, const char * device, hlsrec_global_flags * gfp);
-int hlsrec_write_m3u8(int i, hlsrec_global_flags *gfp, char * tmp);
+int hlsrec_write_m3u8(int i, hlsrec_global_flags * gfp,const char * timestr, const char * audiofiletpl, const char * ipaddress);
 void hlsrec_usage();
 int hlsrec_cli(hlsrec_global_flags  *gfp);
 void hlsrec_free(hlsrec_global_flags  *gf);
@@ -79,7 +80,7 @@ int main (int argc, char *argv[])
     
     /* Parse the cli arguments and initialize the global flags if available */
     opterr = 0;
-    while ((c = getopt (argc, argv, "hvl:i:s:")) != -1)
+    while ((c = getopt (argc, argv, "hvl:i:s:o:")) != -1)
     {
         switch (c)
         {
@@ -116,6 +117,14 @@ int main (int argc, char *argv[])
 
             if(hlsrec_gf.intensity < 0){
                 fprintf(stderr, "invalid parameter for intensity\n");
+                exit(0);
+            }
+            break;
+        case 'o':
+            hlsrec_gf.outputpath = optarg;
+
+            if(strcmp(hlsrec_gf.outputpath, "") != 0){
+                fprintf(stderr, "invalid parameter for output path\n");
                 exit(0);
             }
             break;
@@ -206,8 +215,7 @@ int main (int argc, char *argv[])
     char filename[100];
     for (i = 0; i < 200; i++) {
         memset(filename, 0, 100);
-        sprintf(filename, "/mnt/ramdisk/www/test%d.mp3", i);
-//        sprintf(filename, "/var/www/test%d.mp3", i);
+        sprintf(filename, "%s/%s-%d.mp3", &hlsrec_gf.outputpath[0], "audio", i);
 
         /* currently we ignore the previous value of the mask */
 //        umask(S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
@@ -242,7 +250,7 @@ int main (int argc, char *argv[])
         }
         fclose(fpOut);
         
-        hlsrec_write_m3u8(i, &hlsrec_gf, seconds);
+        hlsrec_write_m3u8(i, &hlsrec_gf, seconds, "audio", "192.168.1.123");
     }
 
     /*
@@ -252,7 +260,7 @@ int main (int argc, char *argv[])
     lame_close(lame_gfp);
     snd_pcm_close (capture_handle);
     
-    fprintf(stderr, "successfuly closed\n");
+    fprintf(stderr, "successfully closed\n");
 
     hlsrec_free(&hlsrec_gf);
     
@@ -297,7 +305,7 @@ int hlsrec_cli(hlsrec_global_flags  *gf)
  *
  * @return 0 on success. Otherwise a negative error code
  */
-int hlsrec_write_m3u8(int i, hlsrec_global_flags * gfp, char * tmp)
+int hlsrec_write_m3u8(int i, hlsrec_global_flags * gfp,const char * timestr, const char * audiofiletpl, const char * ipaddress)
 {
     int nwrite, towrite, b;
     FILE * fp;
@@ -330,23 +338,27 @@ int hlsrec_write_m3u8(int i, hlsrec_global_flags * gfp, char * tmp)
 
     if (i > 1) {
         b = i - 2;
-        sprintf((char*)&str[0], "#EXTINF:%s,\nhttp://192.168.1.123/test%d.mp3\n", tmp, b);
+        sprintf((char*)&str[0], "#EXTINF:%s,\nhttp://%s/%s-%d.mp3\n", ipaddress, timestr, audiofiletpl, b);
         strcat(buf, str);
     }
     
     if (i > 0) {
         b = i - 1;
-        sprintf((char*)&str[0], "#EXTINF:%s,\nhttp://192.168.1.123/test%d.mp3\n", tmp, b);
+        sprintf((char*)&str[0], "#EXTINF:%s,\nhttp://%s/%s-%d.mp3\n", ipaddress, timestr, audiofiletpl, b);
         strcat(buf, str);
     }
 
-    sprintf((char*)&str[0], "#EXTINF:%s,\nhttp://192.168.1.123/test%d.mp3\n", tmp, i);
+    sprintf((char*)&str[0], "#EXTINF:%s,\nhttp://%s/%s-%d.mp3\n", ipaddress, timestr, audiofiletpl, b);
     strcat(buf, str);
 
     //    strcat(buf, tail);
     
+    char filepath_m3u8[100]; /** @todo change 100 to max file path size */
+    memset(filepath_m3u8, 0, 100);
+    strcat(filepath_m3u8, gfp->outputpath);
+    strcat(filepath_m3u8, "/index.m3u8");
     
-    if( (fp = fopen("/mnt/ramdisk/www/index.m3u8", "wb")) == NULL){
+    if( (fp = fopen(&filepath_m3u8[0], "wb")) == NULL){
         fprintf(stderr, "error open index.m3u8\n");
         return -1;
     }
@@ -364,7 +376,7 @@ int hlsrec_write_m3u8(int i, hlsrec_global_flags * gfp, char * tmp)
 }
 
 /** 
- * \brief prepare the input device
+ * \brief Prepare the input device
  *
  * \param capture_handle
  * \param device
