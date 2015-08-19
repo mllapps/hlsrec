@@ -25,22 +25,30 @@
 #define PROJECT_VERSION_PATCH 0
 
 /**
- * Global flags
+ * Global flags for the HTTP Live Stream Recorder
  */
 typedef struct {
     char device[100];
-    int byte_per_sample;        /** Number of bytes for one sample */
-    unsigned int sample_rate;   /** Sample rate to record */
-    int num_channels;           /** Number of channels to record */
-    short level;                /** Level to detect if baby is crying */
-    short intensity;            /** Number of detected samples to switch the state crying */
-    float seconds;              /** Number of seconds per audio file */
-    long num_samples_per_file;   /** Number of samples per file */
+    int byte_per_sample;            /** Number of bytes for one sample */
+    unsigned int sample_rate;       /** Sample rate to record */
+    int num_channels;               /** Number of channels to record */
+    short level;                    /** Level to detect if baby is crying */
+    short intensity;                /** Number of detected samples to switch the state crying */
+    float seconds;                  /** Number of seconds per audio file */
+    long num_samples_per_file;      /** Number of samples per file */
     short int * pcm_buf;
     long num_mp3_buffer_size;
     unsigned char * mp3buffer;
     char * outputpath;
 } hlsrec_global_flags;
+
+/**
+ * Global flags for the application
+ */
+typedef struct {
+    int hflag;  /** Flag to display the helper menu on the console */
+    int vflag;  /** Flag to display the version on console */
+} app_global_flags;
 
 /*
  * foreward declaration
@@ -49,7 +57,7 @@ void hlsrec_loop(snd_pcm_t *capture_handle, short buf[], hlsrec_global_flags* gf
 int hlsrec_configure_hw(snd_pcm_t * capture_handle, hlsrec_global_flags * gfp);
 int hlsrec_prepare_input_device(snd_pcm_t **capture_handle, const char * device, hlsrec_global_flags * gfp);
 int hlsrec_write_m3u8(int i, hlsrec_global_flags * gfp,const char * timestr, const char * audiofiletpl, const char * ipaddress);
-void hlsrec_usage();
+void app_usage();
 hlsrec_global_flags * hlsrec_init(void);
 void hlsrec_post_init(hlsrec_global_flags * gfp);
 void hlsrec_free(hlsrec_global_flags  *gf);
@@ -61,12 +69,16 @@ int app_cli(hlsrec_global_flags  *gfp);
  */
 int main (int argc, char *argv[])
 {
-    int i, res, nencoded, nwrite, hflag = 0, vflag = 0, c;
+    app_global_flags app_gf;
+    int i, res, nencoded, nwrite, c;
     snd_pcm_t *capture_handle;
     FILE *fpOut;
     hlsrec_global_flags * hlsrec_gfp;
     lame_global_flags * lame_gfp;
     char * seconds = NULL;
+
+    /* Set everything to 0 */
+    memset(&app_gf, 0, sizeof(app_global_flags));
 
     /* initialize the global flags and variables. Don't forget to run the hlsrec_post_init()
      * after changes of the default settings
@@ -80,10 +92,10 @@ int main (int argc, char *argv[])
         switch (c)
         {
         case 'h':
-            hflag = 1;
+            app_gf.hflag = 1;
             break;
         case 'v':
-            vflag = 1;
+            app_gf.vflag = 1;
             break;
         case 'l':
             hlsrec_gfp->level = atoi(optarg);
@@ -142,13 +154,13 @@ int main (int argc, char *argv[])
     }
     
     /* print the usage information if the flag is set */
-    if (hflag ) {
-        hlsrec_usage();
+    if (app_gf.hflag ) {
+        app_usage();
         exit(0);
     }
     
     /* print the version information if flag is set */
-    if (vflag) {
+    if (app_gf.vflag) {
         fprintf(stderr, "%d.%d.%d\n", PROJECT_VERSION_MAJOR, PROJECT_VERSION_MINOR, PROJECT_VERSION_PATCH);
         exit(0);
     }
@@ -288,6 +300,10 @@ hlsrec_global_flags * hlsrec_init(void)
     gfp->pcm_buf = NULL;
     gfp->mp3buffer = NULL;
 
+    /**
+     * @todo check the lame version
+     */
+
     return gfp;
 }
 
@@ -320,7 +336,7 @@ void hlsrec_free(hlsrec_global_flags  *gfp)
 /**
  * @brief Print the help/usage information
  */
-void hlsrec_usage()
+void app_usage()
 {
     fprintf(stderr, "hlsrec %d.%d.%d\n\n", PROJECT_VERSION_MAJOR, PROJECT_VERSION_MINOR, PROJECT_VERSION_PATCH);
     fprintf(stderr, "-h print this help/usage information\n");
