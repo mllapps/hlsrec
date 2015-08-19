@@ -50,8 +50,11 @@ int hlsrec_configure_hw(snd_pcm_t * capture_handle, hlsrec_global_flags * gfp);
 int hlsrec_prepare_input_device(snd_pcm_t **capture_handle, const char * device, hlsrec_global_flags * gfp);
 int hlsrec_write_m3u8(int i, hlsrec_global_flags * gfp,const char * timestr, const char * audiofiletpl, const char * ipaddress);
 void hlsrec_usage();
-int hlsrec_cli(hlsrec_global_flags  *gfp);
+hlsrec_global_flags * hlsrec_init(void);
+void hlsrec_post_init(hlsrec_global_flags * gfp);
 void hlsrec_free(hlsrec_global_flags  *gf);
+
+int app_cli(hlsrec_global_flags  *gfp);
 
 /**
  * Main entry point
@@ -61,23 +64,15 @@ int main (int argc, char *argv[])
     int i, res, nencoded, nwrite, hflag = 0, vflag = 0, c;
     snd_pcm_t *capture_handle;
     FILE *fpOut;
-    hlsrec_global_flags hlsrec_gf;
+    hlsrec_global_flags * hlsrec_gfp;
     lame_global_flags * lame_gfp;
     char * seconds = NULL;
 
-    /* Set the global flags to default value */
-    memset(&hlsrec_gf.device[0], 0, 100);
-    strcpy(&hlsrec_gf.device[0], "hw:0,0");
-    hlsrec_gf.sample_rate               = 44100;    /* currently a constant */
-    hlsrec_gf.num_channels              = 1;        /* currently a constant */
-    hlsrec_gf.level                     = 10000;    /* volume level to use for the detection */
-    hlsrec_gf.intensity                 = 500;      /* number of detection in one interval if the event occours */
-    hlsrec_gf.seconds                   = 5;
-    hlsrec_gf.num_samples_per_file      = hlsrec_gf.seconds * hlsrec_gf.sample_rate;
-    hlsrec_gf.num_mp3_buffer_size       = 1.25 * hlsrec_gf.num_samples_per_file + 7200;
-    hlsrec_gf.pcm_buf = NULL;
-    hlsrec_gf.mp3buffer = NULL;
-    
+    /* initialize the global flags and variables. Don't forget to run the hlsrec_post_init()
+     * after changes of the default settings
+     */
+    hlsrec_gfp = hlsrec_init();
+
     /* Parse the cli arguments and initialize the global flags if available */
     opterr = 0;
     while ((c = getopt (argc, argv, "hvl:i:s:o:")) != -1)
@@ -91,39 +86,39 @@ int main (int argc, char *argv[])
             vflag = 1;
             break;
         case 'l':
-            hlsrec_gf.level = atoi(optarg);
+            hlsrec_gfp->level = atoi(optarg);
 
-            if (hlsrec_gf.level < 0) {
+            if (hlsrec_gfp->level < 0) {
                 fprintf(stderr, "invalid parameter value for level\n");
                 exit(0);
             }
             break;
         case 's':
-            hlsrec_gf.seconds = atof(optarg);
+            hlsrec_gfp->seconds = atof(optarg);
 
             seconds = optarg;
 
-            if (hlsrec_gf.seconds < 0.5) {
+            if (hlsrec_gfp->seconds < 0.5) {
                 fprintf(stderr, "invalid parameter value for seconds\n");
                 exit(0);
             }
 
-            hlsrec_gf.num_samples_per_file      = hlsrec_gf.seconds * hlsrec_gf.sample_rate;
-            hlsrec_gf.num_mp3_buffer_size       = 1.25 * hlsrec_gf.num_samples_per_file + 7200;
+            hlsrec_gfp->num_samples_per_file      = hlsrec_gfp->seconds * hlsrec_gfp->sample_rate;
+            hlsrec_gfp->num_mp3_buffer_size       = 1.25 * hlsrec_gfp->num_samples_per_file + 7200;
 
             break;
         case 'i':
-            hlsrec_gf.intensity = atoi(optarg);
+            hlsrec_gfp->intensity = atoi(optarg);
 
-            if(hlsrec_gf.intensity < 0){
+            if(hlsrec_gfp->intensity < 0){
                 fprintf(stderr, "invalid parameter for intensity\n");
                 exit(0);
             }
             break;
         case 'o':
-            hlsrec_gf.outputpath = optarg;
+            hlsrec_gfp->outputpath = optarg;
 
-            if(strcmp(hlsrec_gf.outputpath, "") != 0){
+            if(strcmp(hlsrec_gfp->outputpath, "") != 0){
                 fprintf(stderr, "invalid parameter for output path\n");
                 exit(0);
             }
@@ -158,20 +153,16 @@ int main (int argc, char *argv[])
         exit(0);
     }
 
-    /* Allocate the buffer because the size is changed */
-    hlsrec_gf.pcm_buf = (short int*)malloc(sizeof(short int) * hlsrec_gf.num_samples_per_file);
-    memset(hlsrec_gf.pcm_buf, 0, hlsrec_gf.num_samples_per_file);
+    /* allocate/initialize the buffer. It is important to run this method after cli */
+    hlsrec_post_init(hlsrec_gfp);
 
-    hlsrec_gf.mp3buffer = (unsigned char*)malloc(sizeof(unsigned char) * hlsrec_gf.num_mp3_buffer_size);
-    memset(hlsrec_gf.mp3buffer, 0, hlsrec_gf.num_mp3_buffer_size);
-
-    fprintf(stderr, "pcm buffer: %ld\n", hlsrec_gf.num_samples_per_file);
-    fprintf(stderr, "mp3 buffer: %ld\n", hlsrec_gf.num_mp3_buffer_size);
+    fprintf(stderr, "pcm buffer: %ld\n", hlsrec_gfp->num_samples_per_file);
+    fprintf(stderr, "mp3 buffer: %ld\n", hlsrec_gfp->num_mp3_buffer_size);
 
     fprintf(stderr, "start...\n");
 
-    if( (res = hlsrec_prepare_input_device(&capture_handle, &hlsrec_gf.device[0], &hlsrec_gf) ) < 0) {
-        hlsrec_free(&hlsrec_gf);
+    if( (res = hlsrec_prepare_input_device(&capture_handle, &hlsrec_gfp->device[0], hlsrec_gfp) ) < 0) {
+        hlsrec_free(hlsrec_gfp);
         exit(res);
     }
     
@@ -192,9 +183,9 @@ int main (int argc, char *argv[])
      * are experimental and for testing only.  They may be removed in
      * the future.
      */
-    lame_set_num_samples(lame_gfp,       hlsrec_gf.num_samples_per_file);
-    lame_set_num_channels(lame_gfp,      hlsrec_gf.num_channels);
-    lame_set_in_samplerate(lame_gfp,     hlsrec_gf.sample_rate);
+    lame_set_num_samples(lame_gfp,       hlsrec_gfp->num_samples_per_file);
+    lame_set_num_channels(lame_gfp,      hlsrec_gfp->num_channels);
+    lame_set_in_samplerate(lame_gfp,     hlsrec_gfp->sample_rate);
     lame_set_brate(lame_gfp,             128);
     /* mode = 0,1,2,3 = stereo, jstereo, dual channel (not supported), mono */
     lame_set_mode(lame_gfp,              3);
@@ -215,28 +206,28 @@ int main (int argc, char *argv[])
     char filename[100];
     for (i = 0; i < 200; i++) {
         memset(filename, 0, 100);
-        sprintf(filename, "%s/%s-%d.mp3", &hlsrec_gf.outputpath[0], "audio", i);
+        sprintf(filename, "%s/%s-%d.mp3", &hlsrec_gfp->outputpath[0], "audio", i);
 
         /* currently we ignore the previous value of the mask */
-//        umask(S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
+        //        umask(S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
         umask(022);
 
         /* open the output file */
         fpOut = fopen(filename, "wb"); /* open the output file*/
 
         /* record data from input device and write to pcm_buf */
-        hlsrec_loop(capture_handle, hlsrec_gf.pcm_buf, &hlsrec_gf);
+        hlsrec_loop(capture_handle, hlsrec_gfp->pcm_buf, hlsrec_gfp);
 
         fprintf(stderr, "recorded\n");
 
         /* encode data from pcm_buf and write to mp3_buffer */
         nencoded = lame_encode_buffer(
                     lame_gfp,
-                    hlsrec_gf.pcm_buf,
-                    hlsrec_gf.pcm_buf,
-                    hlsrec_gf.num_samples_per_file,
-                    hlsrec_gf.mp3buffer,
-                    hlsrec_gf.num_mp3_buffer_size);
+                    hlsrec_gfp->pcm_buf,
+                    hlsrec_gfp->pcm_buf,
+                    hlsrec_gfp->num_samples_per_file,
+                    hlsrec_gfp->mp3buffer,
+                    hlsrec_gfp->num_mp3_buffer_size);
         if(nencoded < 0) {
             fprintf(stderr, "error encoding (%d)\n", nencoded);
         }
@@ -244,13 +235,13 @@ int main (int argc, char *argv[])
         fprintf(stderr, "encoded...\n");
 
         /* write the encoded data to the output file */
-        nwrite = fwrite(hlsrec_gf.mp3buffer, sizeof(unsigned char), nencoded, fpOut);
+        nwrite = fwrite(hlsrec_gfp->mp3buffer, sizeof(unsigned char), nencoded, fpOut);
         if(nencoded != nwrite){
             fprintf(stderr, "error write (%d) should be %d\n", nwrite, nencoded);
         }
         fclose(fpOut);
         
-        hlsrec_write_m3u8(i, &hlsrec_gf, seconds, "audio", "192.168.1.123");
+        hlsrec_write_m3u8(i, hlsrec_gfp, seconds, "audio", "192.168.1.123");
     }
 
     /*
@@ -262,15 +253,68 @@ int main (int argc, char *argv[])
     
     fprintf(stderr, "successfully closed\n");
 
-    hlsrec_free(&hlsrec_gf);
+    hlsrec_free(hlsrec_gfp);
     
     exit (0);
 }
 
-void hlsrec_free(hlsrec_global_flags  *gf)
+/**
+ * @brief Allocate the global flags structure and initialize it with default values.
+ *
+ * @return Pointer to the allocated hlsrec_global_flags structure on success. Otherwise NULL.
+ *
+ * @warning Run this method first before any other function.
+ */
+hlsrec_global_flags * hlsrec_init(void)
 {
-    free(gf->pcm_buf);
-    free(gf->mp3buffer);
+    hlsrec_global_flags * gfp;
+
+    gfp = calloc(1, sizeof(hlsrec_global_flags));
+    if(gfp == NULL) {
+        return NULL;
+    }
+
+    /* Set the global flags to default value */
+    strcpy(&gfp->device[0], "hw:0,0");
+    gfp->sample_rate               = 44100;    /* currently a constant */
+    gfp->num_channels              = 1;        /* currently a constant */
+    gfp->level                     = 10000;    /* volume level to use for the detection */
+    gfp->intensity                 = 500;      /* number of detection in one interval if the event occours */
+    gfp->seconds                   = 5;
+    gfp->num_samples_per_file      = gfp->seconds * gfp->sample_rate;
+    gfp->num_mp3_buffer_size       = 1.25 * gfp->num_samples_per_file + 7200; /* Calculation comes from the API file of the lame library */
+
+    /* run the hlsrec_post_init() function to allocate the memory with the active settings */
+    gfp->pcm_buf = NULL;
+    gfp->mp3buffer = NULL;
+
+    return gfp;
+}
+
+/**
+ * @brief Initialize the buffers because the size of the buffer could be changed by the user
+ *
+ * @param gfp Pointer to the global flags structure.
+ *
+ * \warning Run the method hlsrec_init() before you run this function.
+ */
+void hlsrec_post_init(hlsrec_global_flags * gfp)
+{
+    gfp->pcm_buf = (short int*)calloc(1, sizeof(short int) * gfp->num_samples_per_file);
+    gfp->mp3buffer = (unsigned char*)calloc(1, sizeof(unsigned char) * gfp->num_mp3_buffer_size);
+}
+
+/**
+ * @brief Free the allocated memory
+ *
+ * @param gfp Pointer to the global flags structure.
+ */
+void hlsrec_free(hlsrec_global_flags  *gfp)
+{
+    free(gfp->pcm_buf);
+    free(gfp->mp3buffer);
+
+    free(gfp);
 }
 
 /**
@@ -294,7 +338,7 @@ void hlsrec_usage()
  * @param gf Reference to the structure with all flags and variables
  * @return 0 on success. Otherwise a negative error code.
  */
-int hlsrec_cli(hlsrec_global_flags  *gf)
+int app_cli(hlsrec_global_flags  *gf)
 {
     return 0;
 }
