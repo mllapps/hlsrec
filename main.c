@@ -130,7 +130,7 @@ int main (int argc, char *argv[])
         case 'o':
             hlsrec_gfp->outputpath = optarg;
 
-            if(strcmp(hlsrec_gfp->outputpath, "") != 0){
+            if(strcmp(hlsrec_gfp->outputpath, "") == 0){
                 fprintf(stderr, "invalid parameter for output path\n");
                 exit(0);
             }
@@ -295,6 +295,7 @@ hlsrec_global_flags * hlsrec_init(void)
     gfp->seconds                   = 5;
     gfp->num_samples_per_file      = gfp->seconds * gfp->sample_rate;
     gfp->num_mp3_buffer_size       = 1.25 * gfp->num_samples_per_file + 7200; /* Calculation comes from the API file of the lame library */
+    gfp->outputpath                 = NULL;
 
     /* run the hlsrec_post_init() function to allocate the memory with the active settings */
     gfp->pcm_buf = NULL;
